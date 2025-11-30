@@ -15,9 +15,6 @@ from spotify_helper import SpotifyManager
 from typing import List, Dict, Any, Set
 import sys
 
-# ... [MANTENER FUNCIONES: print_tracks, get_user_limit, parse_selection_string, select_tracks_logic] ...
-# (Copia las funciones de UI del paso anterior aquí)
-
 def print_tracks(tracks: List[Dict[str, Any]]) -> None:
     if not tracks:
         print("No se encontraron canciones.")
@@ -87,11 +84,12 @@ def print_menu() -> None:
     print("2. Buscar Top canciones de un GÉNERO")
     print("3. Buscar Top canciones de una DÉCADA")
     print("4. Búsqueda LIBRE (Generic Query)")
-    print("5. IMPORTAR / MERGE (Desde otra Playlist)") # <--- NUEVO
-    print("6. Ver mi 'Lista Temporal' (Staging Area)")
-    print("7. Guardar 'Lista Temporal' en una Playlist")
-    print("8. Ver mis Playlists")
-    print("9. Salir")
+    print("5. IMPORTAR / MERGE (Desde otra Playlist)")
+    print("6. IMPORTAR DESDE ARCHIVO (.txt)")  # <--- NUEVO
+    print("7. Ver mi 'Lista Temporal' (Staging Area)")
+    print("8. Guardar 'Lista Temporal' en una Playlist")
+    print("9. Ver mis Playlists")
+    print("0. Salir")
     print("-" * 25)
 
 def main() -> None:
@@ -183,11 +181,45 @@ def main() -> None:
                 select_tracks_logic(tracks, staging_area)
 
         elif choice == '6':
+            print("\n--- IMPORTAR DESDE ARCHIVO TXT ---")
+            print("El archivo debe tener 1 búsqueda por línea.")
+            print("Ejemplo: 'Queen - Bohemian Rhapsody'")
+            filename = input("Nombre del archivo (ej: canciones.txt): ")
+
+            if not os.path.exists(filename):
+                print("❌ El archivo no existe. Verifica el nombre o la ruta.")
+                continue
+
+            try:
+                with open(filename, 'r', encoding='utf-8') as f:
+                    lines = f.readlines()
+                
+                # Filtramos líneas vacías
+                queries = [line.strip() for line in lines if line.strip()]
+                
+                if not queries:
+                    print("El archivo está vacío.")
+                    continue
+
+                print(f"Se leerán {len(queries)} líneas.")
+                # Llamamos a la nueva función del backend
+                found_tracks = manager.search_tracks_by_batch_queries(queries)
+                
+                # Una vez encontrados, pasamos al selector por si quieres filtrar alguno
+                # que haya encontrado mal.
+                if found_tracks:
+                    print("\nRevisión de resultados del archivo:")
+                    select_tracks_logic(found_tracks, staging_area)
+
+            except Exception as e:
+                print(f"Error leyendo el archivo: {e}")
+
+        elif choice == '7':
             print(f"\n--- LISTA TEMPORAL ({len(staging_area)}) ---")
             print_tracks(staging_area)
             if staging_area and input("¿Limpiar? (s/n): ").lower() == 's': staging_area.clear()
 
-        elif choice == '7':
+        elif choice == '8':
             if not staging_area:
                 print("Lista vacía.")
                 continue
@@ -210,12 +242,12 @@ def main() -> None:
                     staging_area.clear()
                 except: pass
 
-        elif choice == '8':
+        elif choice == '9':
             pls = manager.get_user_playlists()
             print("\n--- MIS PLAYLISTS ---")
             for p in pls: print(f"- {p['name']} ({p.get('total',0)} songs)")
 
-        elif choice == '9':
+        elif choice == '0':
             sys.exit()
 
 if __name__ == "__main__":

@@ -63,8 +63,6 @@ class SpotifyManager:
             
         return self._parse_playlist_items(tracks_data)
 
-    # ... [MANTENER MÉTODOS: get_user_playlists, create_playlist, add_tracks_to_playlist] ...
-
     def get_user_playlists(self) -> List[Dict[str, Any]]:
         playlists = self.sp.current_user_playlists()
         return [{'name': p['name'], 'id': p['id'], 'total': p['tracks']['total']} for p in playlists['items']]
@@ -112,3 +110,44 @@ class SpotifyManager:
                     'uri': track['uri']
                 })
         return clean_tracks
+
+    def search_tracks_by_batch_queries(self, queries: List[str]) -> List[Dict[str, Any]]:
+        """
+        Recibe una lista de strings (ej: ['Queen - Bohemian', 'Despacito']).
+        Busca cada una y devuelve el MEJOR resultado (Top 1) de cada búsqueda.
+        """
+        found_tracks = []
+        not_found = []
+
+        print(f"🔄 Procesando {len(queries)} líneas del archivo...")
+
+        for i, query in enumerate(queries):
+            # Limpiamos espacios extra
+            q = query.strip()
+            if not q: continue
+
+            try:
+                # Buscamos solo 1 resultado (el más probable)
+                results = self.sp.search(q=q, type='track', limit=1)
+                items = results['tracks']['items']
+                
+                if items:
+                    track = self._parse_tracks(items)[0]
+                    found_tracks.append(track)
+                    print(f"   [OK] {q[:20]}... -> {track['name']} ({track['artist']})")
+                else:
+                    not_found.append(q)
+                    print(f"   [X]  No encontrado: {q}")
+                
+                # Pequeña pausa para no saturar la API si la lista es gigante
+                # (Spotify tiene rate limits)
+                if i % 10 == 0:
+                    time.sleep(0.5)
+
+            except Exception as e:
+                print(f"   [Error] falló '{q}': {e}")
+
+        if not_found:
+            print(f"\n⚠ No se encontraron {len(not_found)} canciones: {not_found}")
+            
+        return found_tracks
